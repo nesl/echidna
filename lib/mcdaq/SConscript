@@ -1,0 +1,9 @@
+import os
+import glob
+
+Import('env')
+
+env.Append(CPPPATH=map(os.path.abspath,glob.glob('.')))
+
+penv = env.Clone()
+penv.StaticLibrary( 'mcdaq', source=['mcdaq.c'])

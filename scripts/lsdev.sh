@@ -1,0 +1,1 @@
+lsusb -v -d0x09db:0x00ea
