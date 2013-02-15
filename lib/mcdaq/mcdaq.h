@@ -1,6 +1,11 @@
 #ifndef _MCDAQ_H
 #define _MCDAQ_H
 
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -31,6 +36,7 @@
 #define ADC_RESOLUTION          pow(2, 16)
 #define PRINTERROR(RET)         mc_perror(libusb_to_mcdaq_error(RET), \
                                 libusb_error_name(RET))
+
 
 typedef struct {
     float slope;
@@ -96,7 +102,7 @@ CTRL_MSG in_msg;
 CTRL_MSG out_msg;
 
 static mc_err_t libusb_to_mcdaq_error(int err);
-static char *mc_errstring(int err);
+const char *mc_errstring(int err);
 char * mc_errorstring_r(int err, char* buf, size_t buflen);
 void mc_perror(int err, const char* msg);
 
@@ -142,5 +148,12 @@ float mc_scale_data(uint16_t data,float min_volt, \
                     float max_volt,float scale, \
                     float offset);
 
+int mc_get_calibration(MCDAQ *dev);
 float mc_print_data(MCDAQ *dev, SAMPLE *sample);
+
+#ifdef __cplusplus
+}
+#endif
+
+
 #endif

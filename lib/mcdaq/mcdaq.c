@@ -18,7 +18,7 @@ static mc_err_t libusb_to_mcdaq_error(int err)
 }
 
 
-static char *mc_errstring(int err) {    
+const char *mc_errstring(int err) {    
     switch(err)
     {
     	case MC_ERR_ACCESS:
@@ -91,7 +91,7 @@ int mc_init_device(MCDAQ *dev, int vendor_id, int product_id)
 
   size_of_list = libusb_get_device_list(NULL, &(dev->list));
 
-  printf("Looking for %s VENDORID:%x,PRODUCTID:%x\n",DAQ_NAME,vendor_id, product_id);
+  fprintf(stderr,"Looking for %s VENDORID:%x,PRODUCTID:%x\n",DAQ_NAME,vendor_id, product_id);
   for(i=0;(i<size_of_list) && (found==0);i++) {
     device = dev->list[i];
 
@@ -103,7 +103,7 @@ int mc_init_device(MCDAQ *dev, int vendor_id, int product_id)
       
     
       found = 1;
-      printf("Found Device %s\n", DAQ_NAME);
+      fprintf(stderr,"Found Device %s\n", DAQ_NAME);
       ret = libusb_open(device,&(dev->dev_handle)); 
       if(ret != 0) {
         mc_perror(libusb_to_mcdaq_error(ret),libusb_error_name(ret));
@@ -307,9 +307,12 @@ int mc_set_transfer_mode_block_io(MCDAQ *dev)
 
 int mc_set_voltage_range(MCDAQ *dev, int VOLTRANGE)
 {
-  int ret;
-  char buf[MAX_MSG_LEN];  
 
+  int ret;
+  char buf[MAX_MSG_LEN];
+#ifdef __APPLE__  
+  sleep(1);  // Delay add
+#endif 
   switch(VOLTRANGE) {
     case V2:
       strcpy(buf, "AISCAN:RANGE=BIP2V");
@@ -328,6 +331,7 @@ int mc_set_voltage_range(MCDAQ *dev, int VOLTRANGE)
 
   mc_msg_load(&out_msg,buf);
   ret = mc_send_msg(dev, &out_msg, &in_msg);
+  if(ret!=MC_SUCCESS) 
   return ret;
 }
 
@@ -485,18 +489,19 @@ int mc_init_sample(MCDAQ *dev, SAMPLE *sample)
            break;
    }
 
-
    sample->buf = (uint16_t *)malloc(sizeof(uint8_t)*sample->num_bytes);
    if(sample->buf == NULL) {
-    fprintf(stderr, "Out of memory, could not allocate sample buffer");
+    printf("Out of memory, could not allocate sample buffer");
     return MC_ERR_UNKNOWN;
    }
-   mc_sample_setup_n(dev, sample);
+   ret = mc_sample_setup_n(dev, sample);
+   return ret;
 }
 
 int mc_free_sample(SAMPLE *sample)
 {
     free(sample->buf);
+    return MC_SUCCESS;
 }
 
 
@@ -532,7 +537,7 @@ int mc_get_calibration(MCDAQ *dev)
     }
     else {
         sscanf(in_msg.msg, "AI{%*d}:SLOPE=%f", &(dev->calibration[chan_id].slope));
-        printf("Chan %d Slope: %f\n",chan_id,dev->calibration[chan_id].slope);
+        fprintf(stderr,"Chan %d Slope: %f\n",chan_id,dev->calibration[chan_id].slope);
     } 
     sprintf(buf, "?AI{%d}:OFFSET",chan_id);  
     mc_msg_load(&out_msg,buf);
@@ -544,9 +549,10 @@ int mc_get_calibration(MCDAQ *dev)
         return ret;
     } else {
         sscanf(in_msg.msg, "AI{%*d}:OFFSET=%f", &(dev->calibration[chan_id].offset));
-        printf("Chan %d Offset: %f\n",chan_id,dev->calibration[chan_id].offset);
+        fprintf(stderr,"Chan %d Offset: %f\n",chan_id,dev->calibration[chan_id].offset);
     }
   }
+  return MC_SUCCESS;
 }
 
 
@@ -556,8 +562,8 @@ float mc_print_data(MCDAQ *dev, SAMPLE *sample)
     uint16_t data;
     float fdata;    
 
-    printf("Number of channels: %d\n", sample->num_channels);
-    printf("Number of sample: %d\n", sample->num_samples);    
+    fprintf(stderr,"Number of channels: %d\n", sample->num_channels);
+    fprintf(stderr,"Number of sample: %d\n", sample->num_samples);    
     for(i=0;i<sample->num_samples;i++) {
         for(j=0;j<sample->num_channels;j++) {
                 data=((uint16_t *)sample->buf)[i*sample->num_channels + j];

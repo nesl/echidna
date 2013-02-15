@@ -2,6 +2,8 @@
 import os
 
 env = Environment()
+    
+
 
 subdirs = ['lib/mcdaq']
 for dir in subdirs:
