@@ -1,5 +1,7 @@
 #include <iostream>
-#include <string>
+#include <fstream>
+#include <sstream>
+#include <cstring>
 #include <portaudio.h>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/core.hpp>
@@ -26,12 +28,13 @@ unsigned int LO_CHAN = 0;
 unsigned int NUM_SAMPLES = 1000;
 unsigned int SAMP_RATE = 60000;
 float MAX_VOLT_F = 5.0f;
-
-string server_connection_str;
+string server_connection_str("*");
+int server_port = 5555;
 
 static void show_usage(char *progname);
 
-int main(int argc, char* argv[]) {    
+int main(int argc, char* argv[]) 
+{    
         
 
 
@@ -65,10 +68,37 @@ int main(int argc, char* argv[]) {
 
     if(ops >> Option('S',"server",server_connection_str)) {
         cout << "Connect to server: " << server_connection_str << endl;
-        return 0;
-    } 
+    }
 
-    
+   if(ops >> Option('P',"port",server_port)) {
+        cout << "Connect to port: " << server_port << endl;
+   } 
+
+   stringstream server_connection;
+   server_connection << "tcp://" << server_connection_str << ":" << server_port;
+
+   cout << "Server started as: " << server_connection.str()<<endl;
+   
+   
+  
+    context_t context(1);
+    socket_t socket(context, ZMQ_PUB);
+    socket.bind((char *)server_connection.str().c_str());
+
+    /*
+    MatrixXf data = MatrixXf::Random(3,3);
+    cout << "Matrix to send:" << endl << data << endl;
+    while(true) {
+        message_t data_msg(m.size()*sizeof(float));
+        memcpy((void*) data_msg.data(), (void*)m.data(), m.size()*sizeof(float));
+        socket.send(data_msg);
+        cout << "Sent Matrix: "<< count << endl;    
+        usleep(100);
+        count++;
+    }  
+    return 0;
+    */
+
 
     PaStream *stream;
     PaError err;
@@ -85,25 +115,31 @@ int main(int argc, char* argv[]) {
     daq.set_channels(LO_CHAN,HI_CHAN);
     daq.set_sample_number(NUM_SAMPLES);
     namedWindow("Diplay window", CV_WINDOW_FULLSCREEN); 
-    int i = 0;
+    long i = 0;
     sig.start();
     sleep(5);
 
     for(;;){
-        
-        m = daq.get_data();
+         
         sig.reset_phase();
+        m = daq.get_data();
         m = 1.0/(2.0*MAX_VOLT_F)*m;
         m = (m.array() + 1.0).matrix();        
+
+
+        message_t data_msg(m.size()*sizeof(float));
+        memcpy((void*) data_msg.data(), (void*)m.data(), m.size()*sizeof(float));
+        socket.send(data_msg);
+
+
         eigen2cv(m, image);
         big_image = big_image.zeros(sz,image.type());
         resize(image, big_image, sz);
         //cout << m.transpose() << endl;
         //cout << "Max: " << m.maxCoeff() << endl;
         //cout << "Min: " << m.minCoeff() << endl;
-        cerr << "Count: " << i << endl;    
+        cout << "Count: " << i++ << endl;    
         imshow("Diplay window", big_image);
-        i = i+1;
         if(waitKey(10)>=0) {
                 break;
         }
@@ -113,10 +149,6 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
-
-
-
 
 
 void show_usage(char* progname) 

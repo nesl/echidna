@@ -56,7 +56,7 @@ char* mc_errorstring_r(int err, char* buf, size_t buflen)
 
 void mc_perror(int err, const char* msg)
 {
-  fprintf(stderr, "ERROR:%s:%d:%s\n", mc_errstring(err), err, msg);
+  DEBUG_PRINT("ERROR:%s:%d:%s\n", mc_errstring(err), err, msg);
 }
 
 
@@ -91,25 +91,25 @@ int mc_init_device(MCDAQ *dev, int vendor_id, int product_id)
 
   size_of_list = libusb_get_device_list(NULL, &(dev->list));
 
-  fprintf(stderr,"Looking for %s VENDORID:%x,PRODUCTID:%x\n",DAQ_NAME,vendor_id, product_id);
+  DEBUG_PRINT("Looking for %s VENDORID:%x,PRODUCTID:%x\n",DAQ_NAME,vendor_id, product_id);
   for(i=0;(i<size_of_list) && (found==0);i++) {
     device = dev->list[i];
 
     libusb_get_device_descriptor(device, &desc);
     
-    fprintf(stderr,"VENDORID:%x,PRODUCTID:%x\n",desc.idVendor,desc.idProduct);
+    DEBUG_PRINT("VENDORID:%x,PRODUCTID:%x\n",desc.idVendor,desc.idProduct);
     // Check for matching vendor and product id
     if((desc.idVendor == vendor_id) && (desc.idProduct == product_id)) {
       
     
       found = 1;
-      fprintf(stderr,"Found Device %s\n", DAQ_NAME);
+      DEBUG_PRINT("Found Device %s\n", DAQ_NAME);
       ret = libusb_open(device,&(dev->dev_handle)); 
       if(ret != 0) {
         mc_perror(libusb_to_mcdaq_error(ret),libusb_error_name(ret));
         return libusb_to_mcdaq_error(ret);
       }
-      fprintf(stderr,"Opened Device %s\n", DAQ_NAME);
+      DEBUG_PRINT("Opened Device %s\n", DAQ_NAME);
 
       // Try to claim the interface      
       ret = libusb_claim_interface(dev->dev_handle,DEFAULT_INTF);
@@ -117,14 +117,14 @@ int mc_init_device(MCDAQ *dev, int vendor_id, int product_id)
         mc_perror(libusb_to_mcdaq_error(ret),libusb_error_name(ret));
         return libusb_to_mcdaq_error(ret);
       }
-      fprintf(stderr,"Claimed interface %d\n", DEFAULT_INTF);
+      DEBUG_PRINT("Claimed interface %d\n", DEFAULT_INTF);
       
       ret = libusb_get_active_config_descriptor(device, &(dev->cfg_desc));
       if(ret!=0) {
         mc_perror(libusb_to_mcdaq_error(ret),libusb_error_name(ret));
         return libusb_to_mcdaq_error(ret);
       }
-      fprintf(stderr,"Got Active Configuration Descriptor\n");
+      DEBUG_PRINT("Got Active Configuration Descriptor\n");
       
       mc_read_endpoints(dev);
       found = 1;
@@ -147,7 +147,7 @@ int mc_close_device(MCDAQ *dev)
   libusb_close(dev->dev_handle);
   libusb_free_device_list(dev->list, 1);
   libusb_exit(NULL);
-  fprintf(stderr, "Device closed\n");
+  DEBUG_PRINT( "Device closed\n");
   return MC_SUCCESS;
 }
 
@@ -166,7 +166,7 @@ int mc_read_endpoints(MCDAQ *dev)
   dev->endpoint_out=0;
 
   num_intf = dev->cfg_desc->bNumInterfaces;
-  fprintf(stderr, "Number of interfaces: %d\n", num_intf);
+  DEBUG_PRINT( "Number of interfaces: %d\n", num_intf);
   
   if(num_intf > 1) {
     mc_perror(MC_ERR_UNKNOWN, "To mant interface descriptors, expexted 1");
@@ -176,7 +176,7 @@ int mc_read_endpoints(MCDAQ *dev)
   for(i = 0;i<num_intf;i++){
     intf = (struct libusb_interface *) dev->cfg_desc->interface+i;
     num_intf_desc = intf->num_altsetting;
-    fprintf(stderr, "Number of alternate settings for interface %d -> %d\n", num_intf, num_intf_desc);
+    DEBUG_PRINT( "Number of alternate settings for interface %d -> %d\n", num_intf, num_intf_desc);
     
     if(num_intf_desc >1) {
       mc_perror(MC_ERR_UNKNOWN, "To many alternate settings descriptors, expected 1");
@@ -186,7 +186,7 @@ int mc_read_endpoints(MCDAQ *dev)
     for(j=0;j<num_intf_desc;j++) {
       intf_desc = (struct libusb_interface_descriptor *)intf->altsetting+j;
       num_eps = intf_desc->bNumEndpoints;
-      fprintf(stderr, "Number of endpoints for alternate setting %d -> %d\n", num_intf_desc, num_eps);
+      DEBUG_PRINT( "Number of endpoints for alternate setting %d -> %d\n", num_intf_desc, num_eps);
       
       if(num_eps>1) {
         mc_perror(MC_ERR_UNKNOWN, "To many endpoint descriptors, expected 1");
@@ -194,8 +194,8 @@ int mc_read_endpoints(MCDAQ *dev)
 
       for(k=0;k<num_eps;k++){
         ep_desc = (struct libusb_endpoint_descriptor *)intf_desc->endpoint+k;
-        fprintf(stderr, "Endpoint Address: %x\n", ep_desc->bEndpointAddress);
-        fprintf(stderr, "Max Packet Size: %d\n", ep_desc->wMaxPacketSize);
+        DEBUG_PRINT( "Endpoint Address: %x\n", ep_desc->bEndpointAddress);
+        DEBUG_PRINT( "Max Packet Size: %d\n", ep_desc->wMaxPacketSize);
         dev->endpoint_in=ep_desc->bEndpointAddress;
         dev->bulk_packet_sz=ep_desc->wMaxPacketSize;
       }
@@ -209,7 +209,7 @@ int mc_read_endpoints(MCDAQ *dev)
 int mc_send_ctrl_msg(MCDAQ *dev, CTRL_MSG *msg)
 {
   int bytes_transfered;
-  fprintf(stderr, "Sending: %s\n", msg->msg);
+  DEBUG_PRINT( "Sending: %s\n", msg->msg);
   
   bytes_transfered = libusb_control_transfer(dev->dev_handle, LIBUSB_REQUEST_TYPE_VENDOR + LIBUSB_ENDPOINT_OUT,
                                                   STRINGMESSAGE, 0, 0, msg->msg, MAX_MSG_LEN, CTRL_TIMEOUT);
@@ -234,7 +234,7 @@ int mc_recv_ctrl_msg(MCDAQ *dev, CTRL_MSG *inmsg)
       return libusb_to_mcdaq_error(inmsg->msg_sz);
     }
 
-    fprintf(stderr, "Received Control Transfer: %s\n", inmsg->msg);
+    DEBUG_PRINT( "Received Control Transfer: %s\n", inmsg->msg);
     return MC_SUCCESS;
 }
 
@@ -415,13 +415,13 @@ int mc_recv_samples(MCDAQ *dev, SAMPLE *sample)
   int cur_idx=0;
   pbuf=(uint8_t *)sample->buf;
 
-  fprintf(stderr, "Expecting %d bytes\n", sample->num_bytes);         
+  DEBUG_PRINT( "Expecting %d bytes\n", sample->num_bytes);         
 
   while(total_bytes_received<sample->num_bytes) {
     ret =  libusb_bulk_transfer(dev->dev_handle, dev->endpoint_in, \
                                 &pbuf[cur_idx], MAX_MSG_LEN,\
                                 &bytes_received, TIMEOUT);
-    fprintf(stderr, "Received %d byte...\n", bytes_received);
+    DEBUG_PRINT( "Received %d byte...\n", bytes_received);
     
     total_bytes_received = total_bytes_received + bytes_received;
     if( ret==LIBUSB_ERROR_TIMEOUT && bytes_received<=0) {
@@ -429,9 +429,9 @@ int mc_recv_samples(MCDAQ *dev, SAMPLE *sample)
       return libusb_to_mcdaq_error(ret);
     }
     cur_idx = cur_idx + bytes_received;
-    fprintf(stderr, "Total Received Bytes:%d\n", total_bytes_received);
+    DEBUG_PRINT( "Total Received Bytes:%d\n", total_bytes_received);
   }
-  fprintf(stderr, "Total Received Samples:%lu\n", total_bytes_received/sizeof(uint16_t));
+  DEBUG_PRINT( "Total Received Samples:%lu\n", total_bytes_received/sizeof(uint16_t));
   return MC_SUCCESS;
 }
 
@@ -460,7 +460,7 @@ int mc_init_sample(MCDAQ *dev, SAMPLE *sample)
 {
    int len;
    int ret;
-   fprintf(stderr, "Setting up sampling routine\n");
+   DEBUG_PRINT( "Setting up sampling routine\n");
 
    sample->num_channels = sample->high_channel-sample->low_channel+1;
    sample->total_samples = sample->num_samples * sample->num_channels;
@@ -537,7 +537,7 @@ int mc_get_calibration(MCDAQ *dev)
     }
     else {
         sscanf(in_msg.msg, "AI{%*d}:SLOPE=%f", &(dev->calibration[chan_id].slope));
-        fprintf(stderr,"Chan %d Slope: %f\n",chan_id,dev->calibration[chan_id].slope);
+        DEBUG_PRINT("Chan %d Slope: %f\n",chan_id,dev->calibration[chan_id].slope);
     } 
     sprintf(buf, "?AI{%d}:OFFSET",chan_id);  
     mc_msg_load(&out_msg,buf);
@@ -549,7 +549,7 @@ int mc_get_calibration(MCDAQ *dev)
         return ret;
     } else {
         sscanf(in_msg.msg, "AI{%*d}:OFFSET=%f", &(dev->calibration[chan_id].offset));
-        fprintf(stderr,"Chan %d Offset: %f\n",chan_id,dev->calibration[chan_id].offset);
+        DEBUG_PRINT("Chan %d Offset: %f\n",chan_id,dev->calibration[chan_id].offset);
     }
   }
   return MC_SUCCESS;
@@ -562,8 +562,8 @@ float mc_print_data(MCDAQ *dev, SAMPLE *sample)
     uint16_t data;
     float fdata;    
 
-    fprintf(stderr,"Number of channels: %d\n", sample->num_channels);
-    fprintf(stderr,"Number of sample: %d\n", sample->num_samples);    
+    DEBUG_PRINT("Number of channels: %d\n", sample->num_channels);
+    DEBUG_PRINT("Number of sample: %d\n", sample->num_samples);    
     for(i=0;i<sample->num_samples;i++) {
         for(j=0;j<sample->num_channels;j++) {
                 data=((uint16_t *)sample->buf)[i*sample->num_channels + j];

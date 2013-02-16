@@ -1,23 +1,14 @@
 #include <iostream>
 #include <string>
-#include <portaudio.h>
-#include <opencv2/opencv.hpp>
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <Eigen/Dense>
-#include <opencv2/core/eigen.hpp>
 #include <zmq.hpp>
+#include <Eigen/Dense>
 #include "getoptpp/getopt_pp.h"
-#include "mcdaq.hpp"
-#include "siggen.hpp"
 
-using namespace mcdaq;
-using namespace siggen;
+
+using namespace zmq;
 using namespace std;
 using namespace Eigen;
-using namespace cv;
 using namespace GetOpt;
-using namespace zmq;
 
 
 unsigned int NUM_SEC = 5;
@@ -26,14 +17,13 @@ unsigned int LO_CHAN = 0;
 unsigned int NUM_SAMPLES = 1000;
 unsigned int SAMP_RATE = 60000;
 float MAX_VOLT_F = 5.0f;
-
-string server_connection_str;
+string server_connection_str("localhost");
+int server_port = 5555;
 
 static void show_usage(char *progname);
 
-int main(int argc, char* argv[]) {    
-        
-
+int main(int argc, char* argv[]) 
+{
 
     GetOpt_pp ops(argc, argv);
 
@@ -65,59 +55,36 @@ int main(int argc, char* argv[]) {
 
     if(ops >> Option('S',"server",server_connection_str)) {
         cout << "Connect to server: " << server_connection_str << endl;
-        return 0;
-    } 
-
-    
-
-    PaStream *stream;
-    PaError err;
-
-    SIGGEN_t sig;
-
-    Mat image, big_image;
-    Size sz(NUM_SAMPLES,50*(HI_CHAN-LO_CHAN));   
-
-    MCDAQ_t daq;
-    MatrixXf m;    
-    daq.set_rate(SAMP_RATE);
-    daq.set_volt_range(MCDAQ_t::VOLT5);
-    daq.set_channels(LO_CHAN,HI_CHAN);
-    daq.set_sample_number(NUM_SAMPLES);
-    namedWindow("Diplay window", CV_WINDOW_FULLSCREEN); 
-    int i = 0;
-    sig.start();
-    sleep(5);
-
-    for(;;){
-        
-        m = daq.get_data();
-        sig.reset_phase();
-        m = 1.0/(2.0*MAX_VOLT_F)*m;
-        m = (m.array() + 1.0).matrix();        
-        eigen2cv(m, image);
-        big_image = big_image.zeros(sz,image.type());
-        resize(image, big_image, sz);
-        //cout << m.transpose() << endl;
-        //cout << "Max: " << m.maxCoeff() << endl;
-        //cout << "Min: " << m.minCoeff() << endl;
-        cerr << "Count: " << i << endl;    
-        imshow("Diplay window", big_image);
-        i = i+1;
-        if(waitKey(10)>=0) {
-                break;
-        }
     }
 
-    sig.stop();
+   if(ops >> Option('P',"port",server_port)) {
+        cout << "Connect to port: " << server_port << endl;
+   } 
 
+   stringstream server_connection;
+   server_connection << "tcp://" << server_connection_str << ":" << server_port;
+
+   cout << "Connect to server at: " << server_connection.str()<<endl;
+
+
+    context_t context(1);
+    socket_t socket(context, ZMQ_SUB);
+    socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
+
+    cout << "Connecting to Hello World server" << endl;
+    
+    socket.connect("tcp://localhost:5555");
+    long count = 0;
+    for(;;) {
+        float *pf;
+        message_t data_msg;
+        socket.recv(&data_msg);
+        pf = (float*) data_msg.data(); 
+        Map<MatrixXf> mf(pf,(HI_CHAN-LO_CHAN+1),NUM_SAMPLES);
+        cout << count << " Received:  " << endl << mf << endl;
+    }
     return 0;
 }
-
-
-
-
-
 
 void show_usage(char* progname) 
 {
