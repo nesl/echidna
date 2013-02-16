@@ -1,9 +1,12 @@
 Import('env')
 src = ['echidna.c']
-libs = ['usb-1.0','mcdaq']
+libs = ['usb-1.0','mcdaq','getoptpp']
 libs.reverse()
 
-libpaths=['/usr/local/lib','#lib/mcdaq']
+libpaths=['/usr/local/lib',
+          '#lib/mcdaq',
+          '#lib/siggen',
+          '#lib/getoptpp']
 
 libs_cv = ['opencv_core','opencv_imgproc',
            'opencv_highgui','opencv_ml',
@@ -27,7 +30,11 @@ env.Program(target='echidna',CCFLAGS='-g',
 
 src = ['echidna2.cpp']
 
-flags = { "CPPPATH": ['/usr/local/include/eigen3','/usr/include/eigen3','/usr/include','#lib/siggen']}
+flags = { "CPPPATH": ['/usr/local/include/eigen3',
+                      '/usr/include/eigen3',
+                      '/usr/include',
+                      '#lib/siggen',
+                      '#lib/getoptpp']}
 env.MergeFlags(flags)
 
 env.Program(target='echidna2',CCFLAGS='-g',

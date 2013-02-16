@@ -1,0 +1,12 @@
+import os
+import glob
+
+Import ('env')
+
+name = 'getoptpp'
+env.Append(CPPPATH=map(os.path.abspath,glob.glob('.')))
+ext_inc = env.Dir('getoptpp')
+src = env.Glob('src/*.cpp')
+deps = []
+env.StaticLibrary(name, src)
+

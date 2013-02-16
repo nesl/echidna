@@ -5,7 +5,7 @@ env = Environment()
     
 
 
-subdirs = ['lib/mcdaq']
+subdirs = ['lib/mcdaq','lib/getoptpp']
 for dir in subdirs:
         print os.path.join(dir, 'SConscript')
         SConscript( os.path.join(dir, 'SConscript'), exports = ['env'])
