@@ -148,7 +148,7 @@ typedef struct {
             *out++= data->sine[data->left_phase];
             *out++= data->sine[data->right_phase];
             data->left_phase  += 1; 
-            data->right_phase += 3;
+            data->right_phase += 5;
             if(data->left_phase>=TABLE_SZ) data->left_phase =  0;
             if(data->right_phase>TABLE_SZ) data->right_phase = 0;
         }       

@@ -1,16 +1,23 @@
 #include <iostream>
-#include <string>
+#include <fstream>
+#include <sstream>
+#include <cstring>
 #include <zmq.hpp>
 #include <Eigen/Dense>
+#include <opencv2/opencv.hpp>
+#include <opencv2/core/core.hpp>
+#include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/eigen.hpp>
 #include "getoptpp/getopt_pp.h"
 
 
 using namespace zmq;
 using namespace std;
 using namespace Eigen;
+using namespace cv;
 using namespace GetOpt;
 
-
+bool bDisplay = false;
 unsigned int NUM_SEC = 5;
 unsigned int HI_CHAN = 7;
 unsigned int LO_CHAN = 0;
@@ -31,6 +38,11 @@ int main(int argc, char* argv[])
         show_usage(argv[0]);
         return 0;
     }
+    
+    if (ops >> OptionPresent('D',"display")) {
+        bDisplay = true;
+    }
+
     ops >> Option('H',"high_channel",HI_CHAN);
     if(HI_CHAN > 7) {
         show_usage(argv[0]);
@@ -47,11 +59,6 @@ int main(int argc, char* argv[])
         show_usage(argv[0]);
         return 1;
     }    
-    ops >> Option('r',"rate",SAMP_RATE);
-    if(SAMP_RATE>60000){
-        show_usage(argv[0]);
-        return 1;
-    }
 
     if(ops >> Option('S',"server",server_connection_str)) {
         cout << "Connect to server: " << server_connection_str << endl;
@@ -64,15 +71,21 @@ int main(int argc, char* argv[])
    stringstream server_connection;
    server_connection << "tcp://" << server_connection_str << ":" << server_port;
 
-   cout << "Connect to server at: " << server_connection.str()<<endl;
-
+   cout << "Connect to server at: " << server_connection.str()<<endl;        
 
     context_t context(1);
     socket_t socket(context, ZMQ_SUB);
     socket.setsockopt(ZMQ_SUBSCRIBE, "", 0);
 
-    cout << "Connecting to Hello World server" << endl;
+    cout << "Connecting to Echidna server" << endl;
     
+    Mat image, big_image;
+    Size sz(NUM_SAMPLES,50*(HI_CHAN-LO_CHAN+1));  
+        
+    if(bDisplay) {
+        cout << "Show Display" << endl;
+    }
+    namedWindow("Client Display window", CV_WINDOW_FULLSCREEN); 
     socket.connect("tcp://localhost:5555");
     long count = 0;
     for(;;) {
@@ -81,7 +94,18 @@ int main(int argc, char* argv[])
         socket.recv(&data_msg);
         pf = (float*) data_msg.data(); 
         Map<MatrixXf> mf(pf,(HI_CHAN-LO_CHAN+1),NUM_SAMPLES);
-        cout << count << " Received:  " << endl << mf << endl;
+        cout << " Received: " << count << endl;
+        if (bDisplay) {
+            eigen2cv((MatrixXf)mf, image);
+            big_image = big_image.zeros(sz,image.type());
+            resize(image, big_image, sz);
+            //cout << "Size: " << big_image.size().height << ","<< big_image.size().width << endl;
+            imshow("Client Display window", big_image);
+        }
+        count++;
+        if(waitKey(1)>=0) {
+                break;
+        }
     }
     return 0;
 }
@@ -96,8 +120,6 @@ void show_usage(char* progname)
             "-L, --low_channel\t\t"
             "select the lowest channel o nthe USB DAQ to sample (0-7)\n"
             "-s, --sample\t\t"
-            "choose the number of samples to per image\n"
-            "-r, --rate\t\t"
-            "choose the ADC sample rate" << endl;    
+            "choose the number of samples to per image\n" << endl;
 }
 

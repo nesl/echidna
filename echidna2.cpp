@@ -91,7 +91,7 @@ int main(int argc, char* argv[]) {
 
     for(;;){
         
-        m = daq.get_data();
+        m = daq.run_get_data();
         sig.reset_phase();
         m = 1.0/(2.0*MAX_VOLT_F)*m;
         m = (m.array() + 1.0).matrix();        
