@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
     Size sz(NUM_SAMPLES,50*(HI_CHAN-LO_CHAN));   
 
     MCDAQ_t daq;
-    MatrixXf m;    
+    MatrixXd m;    
     daq.set_rate(SAMP_RATE);
     daq.set_volt_range(MCDAQ_t::VOLT5);
     daq.set_channels(LO_CHAN,HI_CHAN);

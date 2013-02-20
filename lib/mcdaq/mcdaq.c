@@ -505,15 +505,15 @@ int mc_free_sample(SAMPLE *sample)
 }
 
 
-float mc_scale_data(uint16_t data, float min_volt,\
+double mc_scale_data(uint16_t data, float min_volt,\
                     float max_volt, float scale, \
                     float offset)
 {
-    float scaled_data;
-    float range = max_volt - min_volt;
+    double scaled_data;
+    double range = max_volt - min_volt;
 
-    scaled_data = (float)data*scale + offset;
-    scaled_data = scaled_data / (float)ADC_RESOLUTION * range + min_volt;
+    scaled_data = (double)data*scale + offset;
+    scaled_data = scaled_data / (double)ADC_RESOLUTION * range + min_volt;
     return scaled_data;
 }
 

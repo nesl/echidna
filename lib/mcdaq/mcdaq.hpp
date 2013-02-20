@@ -55,8 +55,8 @@ namespace mcdaq {
             void set_channels(int lo, int hi);
             void set_volt_range(VOLT_RANGE range);
             void run();
-            MatrixXf run_get_data();
-            MatrixXf get_data();
+            MatrixXd run_get_data();
+            MatrixXd get_data();
 
              
 
@@ -125,19 +125,19 @@ namespace mcdaq {
             throw error_t(ret);
    }
 
-   MatrixXf MCDAQ_t::run_get_data() {
+   MatrixXd MCDAQ_t::run_get_data() {
         run();
         return get_data();
    }
 
-   MatrixXf MCDAQ_t::get_data() {  
+   MatrixXd MCDAQ_t::get_data() {  
         int ret;  
         uint16_t data;
-        float fdata;
+        double fdata;
         ret = mc_recv_samples(&dev, &sample);
         if(ret!=MC_SUCCESS)
             throw error_t(ret);        
-        MatrixXf m(sample.num_channels,sample.num_samples); 
+        MatrixXd m(sample.num_channels,sample.num_samples); 
         for(int i=0;i<sample.num_samples;i++) {
             for(int j=0;j<sample.num_channels;j++) {
                 data=((uint16_t *)sample.buf)[i*sample.num_channels + j];

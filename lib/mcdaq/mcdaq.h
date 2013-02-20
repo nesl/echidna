@@ -150,7 +150,7 @@ int mc_init_sample(MCDAQ *dev,SAMPLE *sample);
 
 int mc_free_sample(SAMPLE *sample);
 
-float mc_scale_data(uint16_t data,float min_volt, \
+double mc_scale_data(uint16_t data,float min_volt, \
                     float max_volt,float scale, \
                     float offset);
 

@@ -1,6 +1,6 @@
 Import('env')
 src = ['echidna.c']
-libs = ['usb-1.0','mcdaq','getoptpp','zmq']
+libs = ['usb-1.0','mcdaq','getoptpp','zmq','m','fftw3']
 libs.reverse()
 
 libpaths=['/usr/local/lib',

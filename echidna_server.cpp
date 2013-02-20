@@ -2,6 +2,8 @@
 #include <fstream>
 #include <sstream>
 #include <cstring>
+#include <cmath>
+#include <complex>
 #include <portaudio.h>
 #include <zmq.hpp>
 #include <Eigen/Dense>
@@ -12,6 +14,7 @@
 #include "getoptpp/getopt_pp.h"
 #include "mcdaq.hpp"
 #include "siggen.hpp"
+#include <fftw3.h>
 
 using namespace mcdaq;
 using namespace siggen;
@@ -23,16 +26,28 @@ using namespace zmq;
 
 
 bool bDisplay = false;
+bool bfft = false;
 unsigned int NUM_SEC = 5;
 unsigned int HI_CHAN = 7;
 unsigned int LO_CHAN = 0;
-unsigned int NUM_SAMPLES = 1000;
+unsigned int NUM_SAMPLES = 500;
 unsigned int SAMP_RATE = 60000;
 float MAX_VOLT_F = 5.0f;
 string server_connection_str("*");
 int server_port = 5555;
 
+MCDAQ_t daq;
+MatrixXd m;
+context_t context(1);
+socket_t socket(context, ZMQ_PUB);
+
 static void show_usage(char *progname);
+void scale_data(void);
+void send_matrix(MatrixXd mat);
+MatrixXd dft_mag_data(void);
+
+
+
 
 int main(int argc, char* argv[]) 
 {    
@@ -47,7 +62,13 @@ int main(int argc, char* argv[])
     }
 
     if (ops >> OptionPresent('D',"display")) {
+        cout << "Display Result" << endl;
         bDisplay = true;
+    }
+
+    if (ops >> OptionPresent('F',"fft")) {
+        cout << "Calculate FFT" << endl;
+        bfft = true;
     }
 
     ops >> Option('H',"high_channel",HI_CHAN);
@@ -86,63 +107,135 @@ int main(int argc, char* argv[])
    cout << "Server started as: " << server_connection.str()<<endl;
    
    
-    namedWindow("Diplay window", CV_WINDOW_FULLSCREEN);
+    namedWindow("Display window", CV_WINDOW_FULLSCREEN);
     //while(1);
   
-    context_t context(1);
-    socket_t socket(context, ZMQ_PUB);
+
     socket.bind((char *)server_connection.str().c_str());
 
 
     PaStream *stream;
     PaError err;
 
-    SIGGEN_t sig;
+    //SIGGEN_t sig;
 
     Mat image, big_image;
     Size sz(NUM_SAMPLES,50*(HI_CHAN-LO_CHAN+1));   
 
-    MCDAQ_t daq;
-    MatrixXf m;    
+ 
     daq.set_rate(SAMP_RATE);
     daq.set_volt_range(MCDAQ_t::VOLT5);
     daq.set_channels(LO_CHAN,HI_CHAN);
     daq.set_sample_number(NUM_SAMPLES);
 
     long i = 0;
-    sig.start();
-    sleep(5);
+    //sig.start();
+    //sleep(5);
 
     for(;;){
        
         daq.run();
-        sig.reset_phase();
+        //sig.reset_phase();
         m = daq.get_data();
-        m = 1.0/(2.0*MAX_VOLT_F)*m;
-        m = (m.array() + 1.0).matrix();        
+        
+        scale_data();
+        //send_raw_data();
+
+        if(bfft) {
+            MatrixXd fftm = dft_mag_data();
+            send_matrix(fftm);
+        } else {
+            send_matrix(m);
+        }
 
 
-        message_t data_msg(m.size()*sizeof(float));
-        memcpy((void*) data_msg.data(), (void*)m.data(), m.size()*sizeof(float));
-        socket.send(data_msg);
 
         if (bDisplay) {
             eigen2cv(m, image);
             big_image = big_image.zeros(sz,image.type());
             resize(image, big_image, sz);
-            imshow("Diplay window", big_image);
+            imshow("Display window", big_image);
         }
         cout << "Sent: " << i++ << endl;    
-        if(waitKey(15)>=0) {
+        if(waitKey(1)>=0) {
                 break;
         }
     }
 
-    sig.stop();
+    //sig.stop();
 
     return 0;
 }
 
+MatrixXd dft_mag_data(void)
+{
+    int N = m.cols()/2+1;
+    MatrixXcd fftm(m.rows(), N);
+    fftw_complex *out;
+    fftw_plan p;
+    out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * N);
+    double *in;
+    for(int i=0; i < m.rows();i++) {
+        in = m.row(i).data();
+        p = fftw_plan_dft_r2c_1d(N, in, out, 0);
+        fftw_execute(p);        
+        memcpy((void *)fftm.row(i).data(),(void *)out, N);
+    }
+    fftw_free(out);
+
+    MatrixXd fftm_mag = fftm.array().abs().matrix();
+
+    return fftm_mag;
+}
+
+void scale_data(void)
+{
+    m = 1.0/(2.0*MAX_VOLT_F)*m;
+    m = (m.array() + 1.0).matrix(); 
+}
+
+void send_matrix(MatrixXd mat) 
+{
+    message_t data_msg;
+
+    uint32_t rows = mat.rows();
+    uint32_t cols = mat.cols();
+    
+    data_msg.rebuild(sizeof(rows));
+    memcpy((void*) data_msg.data(), (void*)&rows, sizeof(rows));
+    socket.send(data_msg,ZMQ_SNDMORE);
+    
+    data_msg.rebuild(sizeof(cols));
+    memcpy((void*) data_msg.data(), (void*)&cols, sizeof(cols));
+    socket.send(data_msg,ZMQ_SNDMORE);
+
+    data_msg.rebuild(mat.size()*sizeof(double));
+    memcpy((void*) data_msg.data(), (void*)mat.data(), mat.size()*sizeof(double));        
+    socket.send(data_msg,0);
+}
+
+/*
+void send_raw_data(void) 
+{
+    message_t data_msg;
+
+    uint32_t rows = m.rows();
+    uint32_t cols = m.cols();
+    
+    data_msg.rebuild(sizeof(rows));
+    memcpy((void*) data_msg.data(), (void*)&rows, sizeof(rows));
+    socket.send(data_msg,ZMQ_SNDMORE);
+    
+    data_msg.rebuild(sizeof(cols));
+    memcpy((void*) data_msg.data(), (void*)&cols, sizeof(cols));
+    socket.send(data_msg,ZMQ_SNDMORE);
+
+    data_msg.rebuild(m.size()*sizeof(double));
+    memcpy((void*) data_msg.data(), (void*)m.data(), m.size()*sizeof(double));        
+    socket.send(data_msg,0);
+
+}
+*/
 
 void show_usage(char* progname) 
 {
