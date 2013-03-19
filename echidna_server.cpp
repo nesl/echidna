@@ -4,7 +4,6 @@
 #include <cstring>
 #include <cmath>
 #include <complex>
-#include <portaudio.h>
 #include <zmq.hpp>
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
@@ -13,11 +12,9 @@
 #include <opencv2/core/eigen.hpp>
 #include "getoptpp/getopt_pp.h"
 #include "mcdaq.hpp"
-#include "siggen.hpp"
 #include <fftw3.h>
 
 using namespace mcdaq;
-using namespace siggen;
 using namespace std;
 using namespace Eigen;
 using namespace cv;
@@ -31,7 +28,8 @@ unsigned int NUM_SEC = 5;
 unsigned int HI_CHAN = 7;
 unsigned int LO_CHAN = 0;
 unsigned int NUM_SAMPLES = 500;
-unsigned int SAMP_RATE = 60000;
+unsigned int SAMP_RATE = 100000;
+unsigned int GAIN = 1;
 float MAX_VOLT_F = 5.0f;
 string server_connection_str("*");
 int server_port = 5555;
@@ -88,7 +86,7 @@ int main(int argc, char* argv[])
         return 1;
     }    
     ops >> Option('r',"rate",SAMP_RATE);
-    if(SAMP_RATE>60000){
+    if(SAMP_RATE>100000){
         show_usage(argv[0]);
         return 1;
     }
@@ -101,6 +99,30 @@ int main(int argc, char* argv[])
         cout << "Connect to port: " << server_port << endl;
    } 
 
+   if(ops >> Option('G',"gain", GAIN)) {       
+        cout << "Gain:" << GAIN << endl;
+   }
+
+   switch(GAIN) {
+       case 10:
+           cout << "10!" << endl;
+           daq.set_gain_10();
+           break;
+       case 100:
+           daq.set_gain_100();
+           cout << "100!" << endl;
+           break;
+       case 1000:
+           daq.set_gain_1000();
+           cout << "1000!" << endl;
+           break;
+       case 1:           
+       default:
+           daq.set_gain_1();
+           cout << "1!" << endl;
+           break;
+   }
+  
    stringstream server_connection;
    server_connection << "tcp://" << server_connection_str << ":" << server_port;
 
@@ -108,38 +130,26 @@ int main(int argc, char* argv[])
    
    
     namedWindow("Display window", CV_WINDOW_FULLSCREEN);
-    //while(1);
   
 
     socket.bind((char *)server_connection.str().c_str());
 
 
-    PaStream *stream;
-    PaError err;
-
-    //SIGGEN_t sig;
-
     Mat image, big_image;
     Size sz(NUM_SAMPLES,50*(HI_CHAN-LO_CHAN+1));   
 
- 
+    
     daq.set_rate(SAMP_RATE);
     daq.set_volt_range(MCDAQ_t::VOLT5);
     daq.set_channels(LO_CHAN,HI_CHAN);
     daq.set_sample_number(NUM_SAMPLES);
 
     long i = 0;
-    //sig.start();
-    //sleep(5);
 
     for(;;){
        
-        daq.run();
-        //sig.reset_phase();
+        daq.run();        
         m = daq.get_data();
-        
-        scale_data();
-        //send_raw_data();
 
         if(bfft) {
             MatrixXd fftm = dft_mag_data();
@@ -149,6 +159,7 @@ int main(int argc, char* argv[])
         }
 
 
+        scale_data();
 
         if (bDisplay) {
             eigen2cv(m, image);
@@ -162,7 +173,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    //sig.stop();
 
     return 0;
 }
@@ -214,41 +224,15 @@ void send_matrix(MatrixXd mat)
     socket.send(data_msg,0);
 }
 
-/*
-void send_raw_data(void) 
-{
-    message_t data_msg;
-
-    uint32_t rows = m.rows();
-    uint32_t cols = m.cols();
-    
-    data_msg.rebuild(sizeof(rows));
-    memcpy((void*) data_msg.data(), (void*)&rows, sizeof(rows));
-    socket.send(data_msg,ZMQ_SNDMORE);
-    
-    data_msg.rebuild(sizeof(cols));
-    memcpy((void*) data_msg.data(), (void*)&cols, sizeof(cols));
-    socket.send(data_msg,ZMQ_SNDMORE);
-
-    data_msg.rebuild(m.size()*sizeof(double));
-    memcpy((void*) data_msg.data(), (void*)m.data(), m.size()*sizeof(double));        
-    socket.send(data_msg,0);
-
-}
-*/
-
 void show_usage(char* progname) 
 {
     cout << "Usage: " << progname << " [OPTION]" << endl;
     cout << "Read data from the USB-1608FS Data Acquisition\n"
-            "Use the sound card to generate a sine wave\n"
-            "-H, --high_channel\t\t"
-            "select the highest channel on the USB DAQ to sample (0-7)\n"            
-            "-L, --low_channel\t\t"
-            "select the lowest channel o nthe USB DAQ to sample (0-7)\n"
-            "-s, --sample\t\t"
-            "choose the number of samples to per image\n"
+            "-G, --gain\t\t"
+            "Set the gain. Valid options 1,10,100,100"
+            "-s, --samples\t\t"
+            "set the number of samples\n"
             "-r, --rate\t\t"
-            "choose the ADC sample rate" << endl;    
+            "set the sample rate (default 100kSps)\n" << endl;    
 }
 

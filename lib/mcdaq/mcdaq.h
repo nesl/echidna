@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#define DEBUG  1
 #ifdef DEBUG
 #define DEBUG_PRINT(fmt, args...)    fprintf(stderr, fmt, ## args)
 #else
@@ -42,7 +42,6 @@ extern "C" {
 #define ADC_RESOLUTION          pow(2, 16)
 #define PRINTERROR(RET)         mc_perror(libusb_to_mcdaq_error(RET), \
                                 libusb_error_name(RET))
-
 
 typedef struct {
     float slope;
@@ -135,6 +134,9 @@ int mc_flush_input_data(MCDAQ *dev);
 int mc_set_transfer_mode_block_io(MCDAQ *dev);
 int mc_set_voltage_range(MCDAQ *dev, int VOLTRANGE);
 int mc_set_chan_range(MCDAQ *dev, int low_chan, int hi_chan);
+int mc_set_dio_out(MCDAQ *dev);
+int mc_set_dio_val(MCDAQ *dev, uint8_t val);
+//int mc_set_dio_bit(MCDAQ *dev, uint8_t val);
 
 int mc_set_samp_rate(MCDAQ *dev, int samp_rate);
 int mc_set_num_samp(MCDAQ *dev, int num_samp);

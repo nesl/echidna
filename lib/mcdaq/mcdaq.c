@@ -351,6 +351,41 @@ int mc_set_chan_range(MCDAQ *dev, int low_chan, int hi_chan)
   return ret;
 }
 
+int mc_set_dio_out(MCDAQ *dev)
+{
+  int ret;
+  mc_msg_load(&out_msg,"DIO{0}:DIR=OUT");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  if(ret!=MC_SUCCESS)
+     return ret;
+   mc_msg_load(&out_msg,"?DIO{0}:DIR");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  if(ret!=MC_SUCCESS)
+     return ret; 
+  mc_msg_load(&out_msg,"DIO{0}:VALUE=0");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  if(ret!=MC_SUCCESS)
+     return ret;
+  mc_msg_load(&out_msg,"?DIO{0}:VALUE");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  if(ret!=MC_SUCCESS)
+     return ret;
+  mc_msg_load(&out_msg,"DIO{0}:LATCH=0");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  return ret;
+}
+
+int mc_set_dio_val(MCDAQ *dev, uint8_t val)
+{
+  int ret;
+  char buf[MAX_MSG_LEN];
+  sprintf(buf, "DIO{0}:LATCH=%d",val);
+  mc_msg_load(&out_msg,buf);
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  return ret;
+}
+
+
 int mc_set_samp_rate(MCDAQ *dev, int samp_rate)
 {
   char buf[MAX_MSG_LEN];
