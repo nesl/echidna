@@ -59,6 +59,8 @@ namespace mcdaq {
             void set_gain_10();
             void set_gain_100();
             void set_gain_1000();
+            void trigger();
+            void reset_trigger();
             void run();
             MatrixXd run_get_data();
             MatrixXd get_data();
@@ -163,6 +165,20 @@ namespace mcdaq {
 
    }
 
+   inline void MCDAQ_t::trigger() {
+       int ret;
+       ret = mc_set_dio_bit(&dev, 3, 1);
+       if(ret!=MC_SUCCESS)
+           throw error_t(ret);       
+   }
+
+   inline void MCDAQ_t::reset_trigger() {
+       int ret;
+       ret = mc_set_dio_bit(&dev, 3, 0);
+       if(ret!=MC_SUCCESS)
+           throw error_t(ret);       
+   }
+
    inline void MCDAQ_t::run() {
         int ret;
 
@@ -172,8 +188,8 @@ namespace mcdaq {
                         throw error_t(ret);
                 dirty = false;
         }
-
         ret = mc_start_sampling(&dev);
+        trigger();
         if(ret!=MC_SUCCESS)
             throw error_t(ret);
    }
@@ -188,6 +204,7 @@ namespace mcdaq {
         uint16_t data;
         double fdata;
         ret = mc_recv_samples(&dev, &sample);
+        reset_trigger();
         if(ret!=MC_SUCCESS)
             throw error_t(ret);        
         MatrixXd m(sample.num_channels,sample.num_samples); 
@@ -203,7 +220,6 @@ namespace mcdaq {
         }
         return m;
    }
-   
 }
 
 #endif

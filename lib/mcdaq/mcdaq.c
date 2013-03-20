@@ -1,6 +1,7 @@
 #include "mcdaq.h"
 
 
+uint8_t dio_val = 0;
 
 static mc_err_t libusb_to_mcdaq_error(int err)
 {
@@ -305,6 +306,13 @@ int mc_set_transfer_mode_block_io(MCDAQ *dev)
   return ret;
 }
 
+int mc_set_pacer(MCDAQ *dev) {
+  int ret;
+  mc_msg_load(&out_msg,"AISCAN:EXTPACER=ENABLE/MASTER");
+  ret = mc_send_msg(dev, &out_msg, &in_msg);
+  return ret;
+}
+
 int mc_set_voltage_range(MCDAQ *dev, int VOLTRANGE)
 {
 
@@ -375,6 +383,8 @@ int mc_set_dio_out(MCDAQ *dev)
   return ret;
 }
 
+
+
 int mc_set_dio_val(MCDAQ *dev, uint8_t val)
 {
   int ret;
@@ -382,9 +392,21 @@ int mc_set_dio_val(MCDAQ *dev, uint8_t val)
   sprintf(buf, "DIO{0}:LATCH=%d",val);
   mc_msg_load(&out_msg,buf);
   ret = mc_send_msg(dev, &out_msg, &in_msg);
+  dio_val = val;
   return ret;
 }
 
+
+int mc_set_dio_bit(MCDAQ *dev,uint8_t bit, uint8_t val) {
+  int ret;
+  if(val) {
+    dio_val |= 1<<bit;
+  } else {
+    dio_val &= ~(1<<bit);
+  }
+  ret = mc_set_dio_val(dev, dio_val);
+  return ret;
+}
 
 int mc_set_samp_rate(MCDAQ *dev, int samp_rate)
 {
@@ -408,6 +430,10 @@ int mc_sample_setup_n(MCDAQ *dev, SAMPLE *sample)
   
   int ret;
   ret = mc_set_transfer_mode_block_io(dev);
+  if(ret!=MC_SUCCESS){
+    return ret;
+  }
+  ret = mc_set_pacer(dev);
   if(ret!=MC_SUCCESS){
     return ret;
   }
