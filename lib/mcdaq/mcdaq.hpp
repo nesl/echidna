@@ -188,8 +188,8 @@ namespace mcdaq {
                         throw error_t(ret);
                 dirty = false;
         }
-        ret = mc_start_sampling(&dev);
         trigger();
+        ret = mc_start_sampling(&dev);
         if(ret!=MC_SUCCESS)
             throw error_t(ret);
    }
